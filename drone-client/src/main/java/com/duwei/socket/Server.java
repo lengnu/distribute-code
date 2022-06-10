@@ -3,13 +3,16 @@ package com.duwei.socket;
 import com.duwei.common.Constant;
 import com.duwei.common.R;
 import com.duwei.model.bo.NodeBO;
+import com.duwei.service.MessageHandlerService;
 import com.duwei.utils.HttpClientsUtil;
+import com.duwei.util.NetworkUtil;
 import com.duwei.view.MenuView;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
 import java.net.Inet4Address;
+import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.util.Iterator;
 
@@ -26,6 +29,10 @@ import java.util.Iterator;
 @Slf4j
 @Data
 public class Server {
+    /**
+     * 处理客户端消息
+     */
+    private MessageHandlerService messageHandlerService;
     /**
      * 监听信道
      */
@@ -56,11 +63,14 @@ public class Server {
         selector = Selector.open();
 
         //初始化IP和域名
-        ip = Inet4Address.getLocalHost().getHostAddress();
+        //ip = NetworkUtil.getHostIp();
+         ip = "127.0.0.1";
         host = Inet4Address.getLocalHost().getHostName();
 
         //绑定select，监听Accept时间
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+        serverSocketChannel.socket().bind(new InetSocketAddress(ip,Constant.LISTEN_PORT));
+        log.info("{} 在 {} 端口进行监听",ip,Constant.LISTEN_PORT);
     }
 
     /**
@@ -69,6 +79,7 @@ public class Server {
      * @return
      */
     public void init() {
+        messageHandlerService = new MessageHandlerService();
         NodeBO node = new NodeBO();
         node.setIp(this.ip);
         node.setHost(this.host);
@@ -82,6 +93,26 @@ public class Server {
         }
     }
 
+    /**
+     * 监听客户端请求并处理
+     */
+    public void listen() {
+        try {
+            //等待有时间发生，阻塞 TODO 非阻塞有待考虑
+            selector.select();
+            log.info("当前服务器监听到了事件");
+            //获取当时发送的事件
+            Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
+            while (iterator.hasNext()) {
+                SelectionKey key = iterator.next();
+                messageHandlerService.dispatcherHandler(key,this.selector);
+                iterator.remove();
+            }
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
     public static void main(String[] args) throws IOException {
         Server server = new Server();
         server.init();
@@ -92,34 +123,12 @@ public class Server {
                 e.printStackTrace();
             }
         }, "前台线程").start();
+
         new Thread(() -> {
-            server.listen();
-        },"监听线程").start();
-    }
-
-    public void listen() {
-        try {
-            //等待有时间发生，阻塞 TODO 非阻塞有待考虑
-            selector.select();
-            //获取当时发送的事件
-            Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
-            while (iterator.hasNext()) {
-                SelectionKey key = iterator.next();
-                SocketChannel channel = (SocketChannel) key.channel();
-                if (key.isAcceptable()) {
-                    log.info("客户端 {} 进行了连接", channel.getRemoteAddress());
-                }
-                //客户端发来数据
-                if (key.isReadable()) {
-                    log.info("客户端 {} 开始进行数据分片传输", channel.getRemoteAddress());
-
-                    log.info("客户端 {} 数据传输完毕", channel.getRemoteAddress());
-                }
-
+            while (true){
+                server.listen();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        },"监听线程").start();
     }
 
 

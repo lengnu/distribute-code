@@ -12,5 +12,8 @@
         <module name="drone-client" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="Distributed-Coding" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>

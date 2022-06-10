@@ -1,5 +1,6 @@
 package com.duwei.view;
 
+import com.duwei.common.Constant;
 import com.duwei.service.FileService;
 import com.duwei.socket.Server;
 
@@ -35,6 +36,7 @@ public class MenuView {
                     fileEncodingMenu();
                     break;
                 case '2':
+                    fileDecodingMenu();
                     break;
                 case '3':
                     break;
@@ -48,15 +50,18 @@ public class MenuView {
         System.out.println("----------你已经选择文件编码选项----------");
         System.out.print("请输入要编码的文件名称，不超过100字符:");
         String fileName = readString(100);
+        fileName = Constant.FILE_PREFIX + fileName;
         fileService.encodeFile(fileName,server.getIp());
     }
 
 
     //TODO 文件解码部分
-    public void fileDecodingMenu(){
+    public void fileDecodingMenu() throws IOException {
         System.out.println("----------你已经选择文件编码选项----------");
         System.out.print("请输入要解码的文件名称，不超过100字符:");
         String fileName = readString(100);
+        fileName = Constant.FILE_PREFIX + fileName;
+        fileService.decodeFile(fileName);
     }
 
 }

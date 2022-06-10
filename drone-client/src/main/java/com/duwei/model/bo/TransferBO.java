@@ -18,7 +18,10 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TransferBO {
     /**
-     * 1表示存，2表示取
+     * 1表示存
+     * 2.取
+     * 3.恢复文件丢失
+     * 4下线
      */
     private Integer type;
     /**
@@ -26,7 +29,7 @@ public class TransferBO {
      */
     private String fileName;
     /**
-     * 传输资金进行Base64编码后的字符
+     * 传输进行Base64编码后的字符
      */
     private String data;
 }

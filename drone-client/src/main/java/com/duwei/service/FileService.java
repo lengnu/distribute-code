@@ -1,11 +1,10 @@
 package com.duwei.service;
 
 import com.duwei.common.R;
-import com.duwei.erasure.Encoder;
-import com.duwei.model.bo.FileBO;
-import com.duwei.model.bo.NodeBO;
-import com.duwei.model.bo.ShardsBO;
-import com.duwei.model.bo.TransferBO;
+import com.duwei.erasure.Coder;
+import com.duwei.model.bo.*;
+import com.duwei.utils.JsonParseUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +12,8 @@ import org.apache.commons.codec.binary.Base64;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigInteger;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +26,7 @@ import java.util.Map;
  */
 @Slf4j
 public class FileService {
+
     private P2PService p2PService = new P2PService();
     private HttpService httpService = new HttpService();
 
@@ -60,7 +62,7 @@ public class FileService {
             log.error("当前系统节点个数为 {}，分片个数为 {},由于节点个数小于分片大小，不能进行编码", nodes.size(), totalShards);
             return;
         }
-        byte[][] encodeShards = Encoder.encode(shards.getDataShards(), shards.getParityShards(), inputFile);
+        byte[][] encodeShards = Coder.encode(shards.getDataShards(), shards.getParityShards(), inputFile);
         log.info("文件编码完毕，开始进行同步传输，请稍后(可以改为异步)");
 
         //将数据切片包装为TransferBO
@@ -72,7 +74,7 @@ public class FileService {
             bo.setData(Base64.encodeBase64String(encodeShards[i]));
             transferBOS[i] = bo;
         }
-
+        System.out.println("================" + transferBOS);
         //进行同步P2P文件传输
         boolean flag = p2PService.transferShards(nodes, transferBOS);
         if (!flag) {
@@ -82,6 +84,52 @@ public class FileService {
         log.info("文件传输完成");
 
         //将数据存入区块链
+        log.info("编码信息开始上链");
+        FileRecordBO fileRecordBO = generateFileRecord(fileName, owner, shards.getDataShards(), shards.getParityShards(), nodes, transferBOS, fileSize);
+        R r = httpService.addFileRecord(fileRecordBO);
+        if (r.getCode() != 200){
+            log.error(r.getMessage());
+            return;
+        }
+        log.info("编码信息已上链");
+    }
 
+    /**
+     *  根据节点信息和编码信息生成文件记录信息 - 上链信息
+     * @param fileName
+     * @param fileOwner
+     * @param dataShards
+     * @param parityShards
+     * @param nodes
+     * @param transferBOS
+     * @param fileSize
+     * @return
+     */
+    public FileRecordBO generateFileRecord(String fileName,String fileOwner,int dataShards,int parityShards,List<NodeBO> nodes,TransferBO[] transferBOS,long fileSize) throws JsonProcessingException {
+        FileRecordBO fileRecordBO = new FileRecordBO();
+        fileRecordBO.setFile_name(fileName);
+        fileRecordBO.setFile_size(String.valueOf(fileSize));
+        fileRecordBO.setFile_owner(fileOwner);
+        fileRecordBO.setData_shards(BigInteger.valueOf(dataShards));
+        fileRecordBO.setParity_shards(BigInteger.valueOf(parityShards));
+        Map<String,String> map = new HashMap<>();
+        int N = nodes.size();
+        for (int i = 0; i < N; i++) {
+            map.put(nodes.get(i).getIp(),transferBOS[i].getFileName());
+        }
+        fileRecordBO.setMapping_information(JsonParseUtil.stringify(map));
+        return fileRecordBO;
+    }
+
+    public void decodeFile(String fileName) throws IOException {
+        R r = httpService.queryFileRecordByName(fileName);
+        Object fileRecord = r.getData().get("fileRecord");
+        if (fileRecord == null){
+            log.error("当前文件不存在，不能进行恢复");
+            return;
+        }
+        FileRecordBO fileRecordBO = JsonParseUtil.parse(JsonParseUtil.stringify(fileRecord), FileRecordBO.class);
+        log.info("拿到了数据切片记录信息，开始进行切片追溯");
+        p2PService.searchShards(fileRecordBO);
     }
 }

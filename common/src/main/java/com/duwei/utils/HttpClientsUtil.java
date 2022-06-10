@@ -2,7 +2,7 @@ package com.duwei.utils;
 
 import com.duwei.common.R;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.istack.internal.NotNull;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
@@ -38,7 +38,7 @@ public class HttpClientsUtil {
      * @param params  请求url
      * @return
      */
-    public static R get(@NotNull String url, Map<String, String> headers, Map<String, String> params) {
+    public static R get( String url, Map<String, String> headers, Map<String, String> params) {
         //1.获取http客户端
         CloseableHttpClient httpClient = HttpClients.createDefault();
 
@@ -105,12 +105,12 @@ public class HttpClientsUtil {
         }
     }
 
-    public static R get(@NotNull String url)
+    public static R get( String url)
     {
         return get(url,null,null);
     };
 
-    public static R get(@NotNull String url,Map<String,String > params)
+    public static R get( String url,Map<String,String > params)
     {
         return get(url,null,params);
     };
@@ -179,11 +179,11 @@ public class HttpClientsUtil {
         }
     }
 
-    public static R post(@NotNull String url) {
+    public static R post( String url) {
         return post(url, null, null);
     }
 
-    public static R post(@NotNull String url,Object params) {
+    public static R post( String url,Object params) {
         return post(url, null, params);
     }
 
